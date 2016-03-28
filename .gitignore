@@ -1,0 +1,12 @@
+bin
+target
+.cache
+.project
+.classpath
+.settings
+ctags
+.lib-src
+.idea
+.idea_modules
+*.swp
+.ensime*
