@@ -60,21 +60,21 @@ class PicklerTest extends WordSpec with Matchers {
   "unwraps generically all value classes" in {
     trait ValueClassWriters { this: TypesComponent ⇒
       import shapeless._
-      implicit def valueClassWriter[T <: AnyVal, R](implicit
-                                                      gen: Generic.Aux[T, R :: HNil],
-                                                    rw: Writer[R]): Writer[T] =
+      implicit def valueClassWriter[ValueClass <: AnyVal, Value](implicit
+        gen: Generic.Aux[ValueClass, Value :: HNil],
+        rw: Writer[Value]): Writer[ValueClass] =
         Writer(t ⇒ gen.to(t) match {
                  case r :: HNil ⇒ rw.write(r)
                })
     }
     trait ValueClassReaders { this: TypesComponent ⇒
       import shapeless._
-      implicit def valueClassReader[T <: AnyVal, R](implicit
-                                                      gen: Generic.Aux[T, R :: HNil],
-                                                    rr: Reader[R]): Reader[T] =
+      implicit def valueClassReader[ValueClass <: AnyVal, Value](implicit
+                                                      gen: Generic.Aux[ValueClass, Value :: HNil],
+                                                    rr: Reader[Value]): Reader[ValueClass] =
         rr.andThen(r ⇒ gen.from(r :: HNil))
     }
-    object ValueClassPickler extends CollectionsPickler with ValueClassWriters with ValueClassReaders
+    object ValueClassPickler extends CollectionsPickler with ValueClassWriters// with ValueClassReaders
     import ValueClassPickler._
 
     println(write(WithValueClass(MyValueClass("hi"))))
