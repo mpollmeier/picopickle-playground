@@ -43,28 +43,45 @@ class PicklerTest extends WordSpec with Matchers {
         case MyValueClass(value) ⇒ backend.makeString(value)
       }
 
-      // implicit val valueClassReader: Reader[MyValueClass] = Reader {
-      //   case backend.Extract.String(s) ⇒ MyValueClass(s)
-      // }
-      // TODO: compiler doesn't hook this up correctly... it falls back to the generic case class pickler which creates a Map
-      // implicit val valueClassWriter: Writer[AnyVal] = Writer {
-      //   case MyValueClass(value) ⇒ backend.makeString(value)
-      // }
-
-      // implicit val valueClassReader: Reader[MyValueClass] = Reader {
-      //   case backend.Extract.String(s) ⇒ MyValueClass(s)
-      // }
+      implicit val valueClassReader: Reader[MyValueClass] = Reader {
+        case backend.Extract.String(s) ⇒ MyValueClass(s)
+      }
     }
     import ValueClassPickler._
 
-    val a = implicitly[Writer[MyValueClass]]
-    // val b = implicitly[Writer[MyValueClass]]
-    // println(a)
-    // println(a.getClass)
-    println(write(WithValueClass(MyValueClass("hi"))))
+    write(WithValueClass(MyValueClass("hi"))) shouldBe Map("vc" → "hi")
+    read[WithValueClass](Map("vc" → "hi")) shouldBe WithValueClass(MyValueClass("hi"))
 
-    // write(WithValueClass(MyValueClass("hi"))) shouldBe Map("vc" → "hi")
-    // read[WithValueClass](Map("vc" → "hi")) shouldBe WithValueClass(MyValueClass("hi"))
+    // TODO: ensure still works
+    // write(WithValueClass(10, MyValueClass("hi"))) shouldBe Map("i" → 10, "vc" → "hi")
+    // read[WithValueClass](Map("i" → 10, "vc" → "hi")) shouldBe WithValueClass(10, MyValueClass("hi"))
+  }
+
+  "unwraps generically all value classes" in {
+    trait ValueClassWriters { this: TypesComponent ⇒
+      import shapeless._
+      implicit def valueClassWriter[T <: AnyVal, R](implicit
+                                                      gen: Generic.Aux[T, R :: HNil],
+                                                    rw: Writer[R]): Writer[T] =
+        Writer(t ⇒ gen.to(t) match {
+                 case r :: HNil ⇒ rw.write(r)
+               })
+    }
+    trait ValueClassReaders { this: TypesComponent ⇒
+      import shapeless._
+      implicit def valueClassReader[T <: AnyVal, R](implicit
+                                                      gen: Generic.Aux[T, R :: HNil],
+                                                    rr: Reader[R]): Reader[T] =
+        rr.andThen(r ⇒ gen.from(r :: HNil))
+    }
+    object ValueClassPickler extends CollectionsPickler with ValueClassWriters with ValueClassReaders
+    import ValueClassPickler._
+
+    println(write(WithValueClass(MyValueClass("hi"))))
+    println(read[WithValueClass](Map("vc" → Map("value" → "hi")))) // TODO: get rid of nested Map
+
+    write(WithValueClass(MyValueClass("hi"))) shouldBe Map("vc" → "hi")
+    read[WithValueClass](Map("vc" → "hi")) shouldBe WithValueClass(MyValueClass("hi"))
 
     // TODO: ensure still works
     // write(WithValueClass(10, MyValueClass("hi"))) shouldBe Map("i" → 10, "vc" → "hi")
