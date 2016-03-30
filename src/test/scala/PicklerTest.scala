@@ -2,6 +2,8 @@ import org.scalatest.Matchers
 import org.scalatest.WordSpec
 import io.github.netvl.picopickle.{BackendComponent, TypesComponent}
 import io.github.netvl.picopickle.backends.collections.CollectionsPickler
+import shapeless._
+import shapeless.ops.hlist.IsHCons
 
 class PicklerTest extends WordSpec with Matchers {
   import CaseClasses._
@@ -55,30 +57,27 @@ class PicklerTest extends WordSpec with Matchers {
 
   "unwraps generically all value classes" in {
     trait ValueClassReaders { this: TypesComponent ⇒
-      import shapeless._
-      import shapeless.ops.hlist.IsHCons
       implicit def valueClassReader[
         ValueClass <: AnyVal,
         VCAsHList <: HList,
         Value
       ](implicit
         gen: Generic.Aux[ValueClass, VCAsHList],
-        hasOne: IsHCons.Aux[VCAsHList, Value, HNil],
-        valueReader: Reader[Value]): Reader[ValueClass] =
-        valueReader.andThen{ value ⇒
-          val vrRead: VCAsHList = (value :: HNil).asInstanceOf[VCAsHList] // TODO: get rid of cast
-          gen.from(vrRead)
+        isHCons: IsHCons.Aux[VCAsHList, Value, HNil],
+        valueReader: Reader[Value],
+        eqv: (Value :: HNil) =:= VCAsHList): Reader[ValueClass] =
+        valueReader.andThen { value ⇒
+          gen.from(value :: HNil)
         }
     }
+
     trait ValueClassWriters { this: TypesComponent ⇒
-      import shapeless._
-      import shapeless.ops.hlist.IsHCons
       implicit def valueClassWriter[
         ValueClass <: AnyVal,
         VCAsHList <: HList,
         Value](implicit
                gen: Generic.Aux[ValueClass, VCAsHList],
-               hasOne: IsHCons.Aux[VCAsHList, Value, HNil],
+               isHCons: IsHCons.Aux[VCAsHList, Value, HNil],
                valueWriter: Writer[Value]): Writer[ValueClass] =
         Writer(t ⇒ valueWriter.write(gen.to(t).head))
     }
