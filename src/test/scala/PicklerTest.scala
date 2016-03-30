@@ -51,41 +51,42 @@ class PicklerTest extends WordSpec with Matchers {
 
     write(WithValueClass(MyValueClass("hi"))) shouldBe Map("vc" → "hi")
     read[WithValueClass](Map("vc" → "hi")) shouldBe WithValueClass(MyValueClass("hi"))
-
-    // TODO: ensure still works
-    // write(WithValueClass(10, MyValueClass("hi"))) shouldBe Map("i" → 10, "vc" → "hi")
-    // read[WithValueClass](Map("i" → 10, "vc" → "hi")) shouldBe WithValueClass(10, MyValueClass("hi"))
   }
 
   "unwraps generically all value classes" in {
-    trait ValueClassWriters { this: TypesComponent ⇒
-      import shapeless._
-      implicit def valueClassWriter[ValueClass <: AnyVal, Value](implicit
-        gen: Generic.Aux[ValueClass, Value :: HNil],
-        rw: Writer[Value]): Writer[ValueClass] =
-        Writer(t ⇒ gen.to(t) match {
-                 case r :: HNil ⇒ rw.write(r)
-               })
-    }
     trait ValueClassReaders { this: TypesComponent ⇒
       import shapeless._
-      implicit def valueClassReader[ValueClass <: AnyVal, Value](implicit
-                                                      gen: Generic.Aux[ValueClass, Value :: HNil],
-                                                    rr: Reader[Value]): Reader[ValueClass] =
-        rr.andThen(r ⇒ gen.from(r :: HNil))
+      import shapeless.ops.hlist.IsHCons
+      implicit def valueClassReader[
+        ValueClass <: AnyVal,
+        VCAsHList <: HList,
+        Value
+      ](implicit
+        gen: Generic.Aux[ValueClass, VCAsHList],
+        hasOne: IsHCons.Aux[VCAsHList, Value, HNil],
+        valueReader: Reader[Value]): Reader[ValueClass] =
+        valueReader.andThen{ value ⇒
+          val vrRead: VCAsHList = (value :: HNil).asInstanceOf[VCAsHList] // TODO: get rid of cast
+          gen.from(vrRead)
+        }
     }
-    object ValueClassPickler extends CollectionsPickler with ValueClassWriters// with ValueClassReaders
+    trait ValueClassWriters { this: TypesComponent ⇒
+      import shapeless._
+      import shapeless.ops.hlist.IsHCons
+      implicit def valueClassWriter[
+        ValueClass <: AnyVal,
+        VCAsHList <: HList,
+        Value](implicit
+               gen: Generic.Aux[ValueClass, VCAsHList],
+               hasOne: IsHCons.Aux[VCAsHList, Value, HNil],
+               valueWriter: Writer[Value]): Writer[ValueClass] =
+        Writer(t ⇒ valueWriter.write(gen.to(t).head))
+    }
+    object ValueClassPickler extends CollectionsPickler with ValueClassWriters with ValueClassReaders
     import ValueClassPickler._
-
-    println(write(WithValueClass(MyValueClass("hi"))))
-    println(read[WithValueClass](Map("vc" → Map("value" → "hi")))) // TODO: get rid of nested Map
 
     write(WithValueClass(MyValueClass("hi"))) shouldBe Map("vc" → "hi")
     read[WithValueClass](Map("vc" → "hi")) shouldBe WithValueClass(MyValueClass("hi"))
-
-    // TODO: ensure still works
-    // write(WithValueClass(10, MyValueClass("hi"))) shouldBe Map("i" → 10, "vc" → "hi")
-    // read[WithValueClass](Map("i" → 10, "vc" → "hi")) shouldBe WithValueClass(10, MyValueClass("hi"))
   }
 
 }
@@ -97,6 +98,4 @@ object CaseClasses {
 
   case class MyValueClass(value: String) extends AnyVal
   case class WithValueClass(vc: MyValueClass)
-  // TODO:
-  // case class WithValueClass(i: Int, vc: MyValueClass)
 }
