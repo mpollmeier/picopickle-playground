@@ -103,6 +103,18 @@ class PicklerTest extends WordSpec with Matchers {
     writeWithLabel(CCWithLabel(10)) shouldBe ((Map("i" -> 10), "my custom label"))
   }
 
+  "converts to java classes" in {
+    import CollectionsPickler._
+    // TODO: custom backend implementation needed?
+    // idea: only support a given set of base types: Integer, Long, java.util.Map etc.
+
+    val a: backend.BValue = write(WithMap(5, Map("key" -> "value")))
+    val b = a.asInstanceOf[Map[String, Any]]
+    println(b)
+    println(b("x").getClass) //java.lang.Integer -> fine
+    println(b("m").getClass) //scala.Map -> not fine
+  }
+
 }
 
 object CaseClasses {
@@ -114,6 +126,8 @@ object CaseClasses {
   case class WithValueClass(vc: MyValueClass)
 
   case class Nested(x: Int, wo: WithOption)
+
+  case class WithMap(x: Int, m: Map[String, String])
 
   trait WithLabel {
     def label(): String
