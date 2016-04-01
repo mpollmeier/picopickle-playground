@@ -88,6 +88,21 @@ class PicklerTest extends WordSpec with Matchers {
     read[WithValueClass](Map("vc" → "hi")) shouldBe WithValueClass(MyValueClass("hi"))
   }
 
+  "handles labels" in {
+    import CollectionsPickler._
+
+    def writeWithLabel[Value](value: Value)(implicit w: Writer[Value]) = {
+      val writtenValue = write(value)
+      val label: String = value match {
+        case a: WithLabel ⇒ a.label
+        case _        ⇒ value.getClass.getSimpleName
+      }
+      (writtenValue, label)
+    }
+
+    writeWithLabel(CCWithLabel(10)) shouldBe ((Map("i" -> 10), "my custom label"))
+  }
+
 }
 
 object CaseClasses {
@@ -97,4 +112,13 @@ object CaseClasses {
 
   case class MyValueClass(value: String) extends AnyVal
   case class WithValueClass(vc: MyValueClass)
+
+  case class Nested(x: Int, wo: WithOption)
+
+  trait WithLabel {
+    def label(): String
+  }
+  case class CCWithLabel(i: Int) extends WithLabel {
+    def label = "my custom label"
+  }
 }
