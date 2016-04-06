@@ -1,5 +1,6 @@
 import org.scalatest.Matchers
 import org.scalatest.WordSpec
+import io.github.netvl.picopickle.key
 import io.github.netvl.picopickle.{BackendComponent, TypesComponent}
 import io.github.netvl.picopickle.backends.collections.CollectionsPickler
 import shapeless._
@@ -53,6 +54,21 @@ class PicklerTest extends WordSpec with Matchers {
 
     write(WithValueClass(MyValueClass("hi"))) shouldBe Map("vc" → "hi")
     read[WithValueClass](Map("vc" → "hi")) shouldBe WithValueClass(MyValueClass("hi"))
+  }
+
+  "gets result type from Writer" ignore {
+    // import CollectionsPickler._
+
+    // def writeWithLabel[Value](value: Value)(implicit w: Writer[Value]) = {
+    //   val writtenValue = write(value)
+    //   val label: String = value match {
+    //     case a: WithLabel ⇒ a.label
+    //     case _        ⇒ value.getClass.getSimpleName
+    //   }
+    //   (writtenValue, label)
+    // }
+
+    // writeWithLabel(CCWithLabel(10)) shouldBe ((Map("i" -> 10), "my custom label"))
   }
 
   "unwraps generically all value classes" in {
@@ -115,10 +131,19 @@ class PicklerTest extends WordSpec with Matchers {
     println(b("m").getClass) //scala.Map -> not fine
   }
 
+  "allows renaming of keys" in {
+    import CollectionsPickler._
+
+    write(Renamed(10, "hi")) shouldBe Map("x" → 10, "renamed" → "hi")
+    read[Renamed](Map("x" → 10, "renamed" → "hi")) shouldBe Renamed(10, "hi")
+  }
+
 }
 
 object CaseClasses {
   case class Simple(x: Int, y: String)
+
+  case class Renamed(x: Int, @key("renamed") y: String)
 
   case class WithOption(so: Option[String])
 
