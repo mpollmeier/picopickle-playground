@@ -139,23 +139,24 @@ class PicklerTest extends WordSpec with Matchers {
   }
 
   "handles Ids" in {
-    // TODO: how can I make this high priority - read up in picopickle
-    trait IdWriters { this: TypesComponent ⇒
-      implicit def idWriter[IdType](id: Id[IdType])(implicit w: Writer[IdType]) = {
-        println("XXXXXXXXXXXXXXX yay, getting invoked")
-        // w.write(id.value) match {
-        //   case _ => ???
-              // case writtenValue: Map[_,_] => writtenValue.map{ case (k,v) => ("__id" -> v) }
-        // }
-        w.write(id.value)
+    trait IdPicklers { this: BackendComponent with TypesComponent ⇒
+      implicit def idWriter[IdType](implicit w: Writer[IdType]): Writer[Id[IdType]] = Writer {
+        case Id(value) =>
+          println("XXXXXXXXXXXXXXX yay, getting invoked")
+          // TODO: get rid of cast
+          Map("__id" -> w.write(value)).asInstanceOf[backend.BValue]
       }
+
+      // implicit val definedByIntReader: Reader[DefinedByInt] = Reader {
+      //   case backend.Extract.Number(x) => DefinedByInt(x.intValue(), x.intValue().toString)
+      // }
     }
 
-    object MyPickler extends CollectionsPickler with IdWriters
-    // object MyPickler extends IdWriters with CollectionsPickler
+    object MyPickler extends CollectionsPickler with IdPicklers
     import MyPickler._
 
     // MyPickler.idWriter(Id("id value")) shouldBe Map("__id" -> "id value")
+    println(write(Id("id value")))
     write(Id("id value")) shouldBe Map("__id" -> "id value")
 
     // import CollectionsPickler._
