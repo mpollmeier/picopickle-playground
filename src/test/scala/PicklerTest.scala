@@ -142,31 +142,33 @@ class PicklerTest extends WordSpec with Matchers {
     trait IdPicklers { this: BackendComponent with TypesComponent ⇒
       implicit def idWriter[IdType](implicit w: Writer[IdType]): Writer[Id[IdType]] = Writer {
         case Id(value) =>
-          println("XXXXXXXXXXXXXXX yay, getting invoked")
+          println("XXXXXXXXXXXXXXX yay, writer getting invoked")
           // TODO: get rid of cast
           Map("__id" -> w.write(value)).asInstanceOf[backend.BValue]
       }
 
-      // implicit val definedByIntReader: Reader[DefinedByInt] = Reader {
-      //   case backend.Extract.Number(x) => DefinedByInt(x.intValue(), x.intValue().toString)
-      // }
+      implicit def idReader[IdType](implicit r: Reader[IdType]): Reader[Id[IdType]] = Reader {
+        // case backend.Extract.Number(x) => DefinedByInt(x.intValue(), x.intValue().toString)
+        // TODO: get rid of warning re type erasure
+        // case value: IdType =>
+        //   println("YYYYYYYYYYYYYYY yay, reader getting invoked")
+        //   Id[IdType](value)
+        case other =>
+          println("YYYYYYYYYYYYYY " + other + " " + other.getClass )
+          ???
+      }
     }
 
     object MyPickler extends CollectionsPickler with IdPicklers
     import MyPickler._
 
-    // MyPickler.idWriter(Id("id value")) shouldBe Map("__id" -> "id value")
-    println(write(Id("id value")))
-    write(Id("id value")) shouldBe Map("__id" -> "id value")
+    // println(write(Id("id value")))
+    // write(Id("id value")) shouldBe Map("__id" -> "id value")
 
-    // import CollectionsPickler._
-    // def writeId[IdType](id: Id[IdType])(implicit w: Writer[IdType]) = {
-    //   write(id) match {
-    //     case writtenValue: Map[_,_] => writtenValue.map{ case (k,v) => ("__id" -> v) }
-    //   }
-    // }
-
-    // writeId(Id("id value")) shouldBe Map("__id" -> "id value")
+    // TODO: for some reason it only invoked idReader if key is "value"
+    println(read[Id[String]](Map("__id" -> "id value")))
+    println(read[Id[String]](Map("value" -> "id value")))
+    // read[Id[String]](Map("__id" -> "id value") shouldBe Id("id value"))
   }
 
 }
