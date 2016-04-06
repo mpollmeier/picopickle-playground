@@ -148,27 +148,18 @@ class PicklerTest extends WordSpec with Matchers {
       }
 
       implicit def idReader[IdType](implicit r: Reader[IdType]): Reader[Id[IdType]] = Reader {
-        // case backend.Extract.Number(x) => DefinedByInt(x.intValue(), x.intValue().toString)
-        // TODO: get rid of warning re type erasure
-        // case value: IdType =>
-        //   println("YYYYYYYYYYYYYYY yay, reader getting invoked")
-        //   Id[IdType](value)
-        case other =>
-          println("YYYYYYYYYYYYYY " + other + " " + other.getClass )
-          ???
+        case idValueMap: Map[_,_] =>
+            println("YYYYYYYYYYYYYYY yay, reader getting invoked")
+          // TODO: get rid of cast
+          Id[IdType](idValueMap.asInstanceOf[Map[String, IdType]]("__id"))
       }
     }
 
     object MyPickler extends CollectionsPickler with IdPicklers
     import MyPickler._
 
-    // println(write(Id("id value")))
-    // write(Id("id value")) shouldBe Map("__id" -> "id value")
-
-    // TODO: for some reason it only invoked idReader if key is "value"
-    println(read[Id[String]](Map("__id" -> "id value")))
-    println(read[Id[String]](Map("value" -> "id value")))
-    // read[Id[String]](Map("__id" -> "id value") shouldBe Id("id value"))
+    write(Id("id value")) shouldBe Map("__id" -> "id value")
+    read[Id[String]](Map("__id" -> "id value")) shouldBe Id("id value")
   }
 
 }
