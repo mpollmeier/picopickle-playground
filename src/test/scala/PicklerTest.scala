@@ -138,6 +138,36 @@ class PicklerTest extends WordSpec with Matchers {
     read[Renamed](Map("x" → 10, "renamed" → "hi")) shouldBe Renamed(10, "hi")
   }
 
+  "handles Ids" in {
+    // TODO: how can I make this high priority - read up in picopickle
+    trait IdWriters { this: TypesComponent ⇒
+      implicit def idWriter[IdType](id: Id[IdType])(implicit w: Writer[IdType]) = {
+        println("XXXXXXXXXXXXXXX yay, getting invoked")
+        // w.write(id.value) match {
+        //   case _ => ???
+              // case writtenValue: Map[_,_] => writtenValue.map{ case (k,v) => ("__id" -> v) }
+        // }
+        w.write(id.value)
+      }
+    }
+
+    object MyPickler extends CollectionsPickler with IdWriters
+    // object MyPickler extends IdWriters with CollectionsPickler
+    import MyPickler._
+
+    // MyPickler.idWriter(Id("id value")) shouldBe Map("__id" -> "id value")
+    write(Id("id value")) shouldBe Map("__id" -> "id value")
+
+    // import CollectionsPickler._
+    // def writeId[IdType](id: Id[IdType])(implicit w: Writer[IdType]) = {
+    //   write(id) match {
+    //     case writtenValue: Map[_,_] => writtenValue.map{ case (k,v) => ("__id" -> v) }
+    //   }
+    // }
+
+    // writeId(Id("id value")) shouldBe Map("__id" -> "id value")
+  }
+
 }
 
 object CaseClasses {
@@ -160,4 +190,6 @@ object CaseClasses {
   case class CCWithLabel(i: Int) extends WithLabel {
     def label = "my custom label"
   }
+
+  case class Id[IdType](value: IdType)
 }
