@@ -160,6 +160,9 @@ class PicklerTest extends WordSpec with Matchers {
 
     write(Id("id value")) shouldBe Map("__id" -> "id value")
     read[Id[String]](Map("__id" -> "id value")) shouldBe Id("id value")
+
+    write(WrappedId(42, Id(Long.MaxValue))) shouldBe Map("i" -> 42, "id" -> Map("__id" -> Long.MaxValue))
+    read[WrappedId](Map("i" -> 42, "id" -> Map("__id" -> Long.MaxValue))) shouldBe WrappedId(42, Id(Long.MaxValue))
   }
 
 }
@@ -186,4 +189,5 @@ object CaseClasses {
   }
 
   case class Id[IdType](value: IdType)
+  case class WrappedId(i: Int, id: Id[Long])
 }
