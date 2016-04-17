@@ -1,22 +1,35 @@
 import org.scalatest.Matchers
 import org.scalatest.WordSpec
 import io.github.netvl.picopickle.key
-import io.github.netvl.picopickle.{BackendComponent, TypesComponent}
+import io.github.netvl.picopickle.{BackendComponent, TypesComponent, ValueClassReaderWritersComponent}
 import io.github.netvl.picopickle.backends.collections.CollectionsPickler
 import shapeless._
 import shapeless.ops.hlist.IsHCons
+import java.lang.{Long ⇒ JLong, Double ⇒ JDouble}
+
+object MyPickler extends CollectionsPickler with ValueClassReaderWritersComponent
 
 class PicklerTest extends WordSpec with Matchers {
   import CaseClasses._
 
   "simple case class" in {
-    import CollectionsPickler._
+    import MyPickler._
     write(Simple(10, "hi")) shouldBe Map("x" → 10, "y" → "hi")
     read[Simple](Map("x" → 10, "y" → "hi")) shouldBe Simple(10, "hi")
   }
 
+  "handles java types" in {
+    import MyPickler._
+    // TODO: implement
+    // println(write(new Integer(12)))
+
+    // val cc = WithJavaTypes(new Integer(12), new JLong(22l), new JDouble(3.3d))
+    // write(cc) shouldBe Map("i" → 12, "l" → 22, "d" -> 3.3d)
+    // read[Simple](Map("i" → 12, "l" → 22, "d" -> 3.3d)) shouldBe cc
+  }
+
   "unwraps Some and None" in {
-    import CollectionsPickler._
+    import MyPickler._
     write(WithOption(Some("hi"))) shouldBe Map("so" → "hi")
     write(WithOption(None)) shouldBe Map.empty
 
@@ -40,17 +53,8 @@ class PicklerTest extends WordSpec with Matchers {
     read[Simple](10) shouldBe Simple(10, "10")
   }
 
-  "unwraps specific value class" in {
-    object ValueClassPickler extends CollectionsPickler {
-      implicit def valueClassWriter: Writer[MyValueClass] = Writer {
-        case MyValueClass(value) ⇒ backend.makeString(value)
-      }
-
-      implicit val valueClassReader: Reader[MyValueClass] = Reader {
-        case backend.Extract.String(s) ⇒ MyValueClass(s)
-      }
-    }
-    import ValueClassPickler._
+  "unwraps value classes" in {
+    import MyPickler._
 
     write(WithValueClass(MyValueClass("hi"))) shouldBe Map("vc" → "hi")
     read[WithValueClass](Map("vc" → "hi")) shouldBe WithValueClass(MyValueClass("hi"))
@@ -132,7 +136,7 @@ class PicklerTest extends WordSpec with Matchers {
   }
 
   "allows renaming of keys" in {
-    import CollectionsPickler._
+    import MyPickler._
 
     write(Renamed(10, "hi")) shouldBe Map("x" → 10, "renamed" → "hi")
     read[Renamed](Map("x" → 10, "renamed" → "hi")) shouldBe Renamed(10, "hi")
@@ -142,14 +146,14 @@ class PicklerTest extends WordSpec with Matchers {
     trait IdPicklers { this: BackendComponent with TypesComponent ⇒
       implicit def idWriter[IdType](implicit w: Writer[IdType]): Writer[Id[IdType]] = Writer {
         case Id(value) =>
-          println("XXXXXXXXXXXXXXX yay, writer getting invoked")
+          // println("XXXXXXXXXXXXXXX yay, writer getting invoked")
           // TODO: get rid of cast
           Map("__id" -> w.write(value)).asInstanceOf[backend.BValue]
       }
 
       implicit def idReader[IdType](implicit r: Reader[IdType]): Reader[Id[IdType]] = Reader {
         case idValueMap: Map[_,_] =>
-            println("YYYYYYYYYYYYYYY yay, reader getting invoked")
+            // println("YYYYYYYYYYYYYYY yay, reader getting invoked")
           // TODO: get rid of cast
           Id[IdType](idValueMap.asInstanceOf[Map[String, IdType]]("__id"))
       }
@@ -173,6 +177,8 @@ object CaseClasses {
   case class Renamed(x: Int, @key("renamed") y: String)
 
   case class WithOption(so: Option[String])
+
+  case class WithJavaTypes(i: Integer, l: JLong, d: JDouble)
 
   case class MyValueClass(value: String) extends AnyVal
   case class WithValueClass(vc: MyValueClass)
